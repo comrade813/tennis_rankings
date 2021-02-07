@@ -9,7 +9,7 @@ masterDict = {}
 
 def getData():
     UTR.getUTRData(masterDict)
-    ITF.getITFData(masterDict)
+    #ITF.getITFData(masterDict)
 
 def print_player(out, name, row):
     out.write(row,0,name)
@@ -24,7 +24,7 @@ def print_player(out, name, row):
         out.write(row,6,masterDict[name].site["USTA"])
 
 def generate_spreadsheet():
-    out = wb.add_sheet("Sheet 1")
+    out = wb.add_sheet("Recruitment Sheet")
     out.write(0,0,"NAME")
     out.write(0,1,"AGE")
     out.write(0,2,"COUNTRY")
@@ -37,3 +37,6 @@ def generate_spreadsheet():
     for name in masterDict.keys():
         print_player(out, name, row)
         row += 1
+
+getData()
+generate_spreadsheet()
