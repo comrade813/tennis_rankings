@@ -12,7 +12,7 @@ def getITFData(curDict):
         pName = player["playerGivenName"].encode("utf-8") + " " + player["playerFamilyName"].encode("utf-8")
         age = datetime.date.today().year - player["birthYear"]
         if pName not in curDict:
-            curDict[pName] = Player.Player(pName, datetime.date.today().year - player["birthYear"], player["playerNationalityCode"].encode("utf-8"), "null", {"ITF": player["points"]}, {})
+            curDict[pName] = Player.Player(pName, datetime.date.today().year - player["birthYear"], player["playerNationalityCode"].encode("utf-8"), "not professional", {"ITF": player["points"]}, {})
         else:
             if curDict[pName].age == -1: 
                 curDict[pName].age = age
