@@ -70,12 +70,8 @@ def getUTRData(masterDict):
                         continue
                     if age > 19:
                         continue
-                    masterDict[name] = Player(name, age, player["nationality"],"null",
+                    masterDict[name] = Player(name, age, player["nationality"],"not professional",
                                               {"UTR": player["utr"]}, {})
             else:
                 break
     return True
-
-playerDict = {}
-getUTRData(playerDict)
-print(playerDict)
