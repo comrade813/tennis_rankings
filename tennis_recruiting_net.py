@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import binascii
 import urllib
+import json
 
 def pretty_print_POST(req):
     """
@@ -26,11 +27,17 @@ def hash_password(session_id):
     password = "kenny"
 
     password = hmac.new(password.encode(), password.encode(), digestmod=hashlib.sha256).hexdigest()
-    print(password.encode())
+    #print(password.encode())
     password = hmac.new(session_id.encode(), password.encode(), digestmod=hashlib.sha256).hexdigest()
-    print(password)
+    #print(password)
 
     return password
+
+def check_cookies(c1, c2):
+    if c1 == c2:
+        print("Cookies working")
+    else:
+        print("Cookies changed!!!")
 
 def retrieve_tennis_recruiting_net():
     headers = {
@@ -50,6 +57,7 @@ def retrieve_tennis_recruiting_net():
         "Accept-Language": "en-US,en;q=0.9"
     }
     s = requests.Session()
+    s.get("https://www.tennisrecruiting.net")
     username = "kthorne"
     payload = {
         "login_username": username,
@@ -60,7 +68,13 @@ def retrieve_tennis_recruiting_net():
     post = s.post(login_url, headers=headers, cookies=s.cookies, data=payload)
     payload["login_hash"] = hash_password(s.cookies.get_dict()["sessionid"])
     post = s.post(login_url, headers=headers, cookies=s.cookies, data=payload)
-    print(post.content)
+    standard = s.cookies
+    if json.loads(post.content.decode())["activated"]:
+        print("Login Success")
+    else:
+        print(post.content)
+        print("Login Failed")
+        return False
     
     data_headers = {
         "Host": "www.tennisrecruiting.net",
@@ -78,13 +92,29 @@ def retrieve_tennis_recruiting_net():
         "Accept-Language": "en-US,en;q=0.9"
     }
     data_url = "https://www.tennisrecruiting.net/list.asp?id=1215&order=rank&extra=&page=2"
-    print(s.cookies)
+    check_cookies(standard, s.cookies)
     page = s.get(data_url, headers=data_headers, cookies=s.cookies)
     #pretty_print_POST(page.request)
     #print(page.status_code)
-    print(s.cookies)
+    #print(page.content)
+    check_cookies(standard, s.cookies)
     soup = BeautifulSoup(page.content, "html.parser")
-    #print(soup)
-    #print(soup.find_all("tr", id=True))
+    
+    if len(str(soup.find_all("script")[9]).splitlines()) < 11:
+        print("Bad Site")
+        return False
+
+    if str(soup.find_all("script")[9]).splitlines()[10].split(" =")[1].strip(" \'\";") == standard["sessionid"]:
+        print("Session ID Good")
+    else:
+        print("Session ID Changed")
+        return False
+    if(str(soup.find_all("script")[9]).splitlines()[11].split(" =")[1].strip(" \'\";")) == "50610":
+        print("Good User ID")
+    else:
+        print("Bad User ID")
+        return False
+    
+    print(soup.findAll("tr", id=True))
 
 retrieve_tennis_recruiting_net()
