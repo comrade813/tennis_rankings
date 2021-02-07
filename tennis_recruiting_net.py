@@ -8,22 +8,6 @@ import urllib
 import json
 import Player
 
-def pretty_print_POST(req):
-    """
-    At this point it is completely built and ready
-    to be fired; it is "prepared".
-
-    However pay attention at the formatting used in 
-    this function because it is programmed to be pretty 
-    printed and may differ from the actual request.
-    """
-    print('{}\n{}\r\n{}\r\n\r\n{}'.format(
-        '-----------START-----------',
-        req.method + ' ' + req.url,
-        '\r\n'.join('{}: {}'.format(k, v) for k, v in req.headers.items()),
-        req.body,
-    ))
-
 def hash_password(session_id):
     password = "kenny"
 
@@ -40,7 +24,7 @@ def check_cookies(c1, c2):
     else:
         print("Cookies changed!!!")
 
-def retrieve_tennis_recruiting_net():
+def retrieve_tennis_recruiting_net(masterDict):
     headers = {
         "Host": "www.tennisrecruiting.net",
         "Connection": "close",
@@ -117,16 +101,18 @@ def retrieve_tennis_recruiting_net():
         return False
     
     # print(soup.findAll("tr", id=True))
-    curDict = {}
-    urlTemp = "https://www.tennisrecruiting.net/list.asp?id=1215&order=rank&extra=&page=1"
-    for x in range(1,3):
-        getTRNData(curDict, "https://www.tennisrecruiting.net/list.asp?id=1215&order=rank&extra=&page=" + str(x), s.cookies) 
+    urlTemp = "https://www.tennisrecruiting.net/list.asp?id={0}&order=rank&extra=&page={1}"
+    levels = {"Juniors":"1225", "Sophomores":"1235", "Freshman":"1245", "8th Graders":"1255"}
+    for grade in levels.keys():
+        for x in range(1,2):
+            print("Checking " + grade)
+            getTRNData(masterDict, urlTemp.format(levels[grade], x), s) 
     # for player in curDict:
     #     curP = curDict[player]
     #     print(curP.name + ", Age: " + str(curP.age) + ", Country: " + curP.country + ", Status: " + str(curP.status) + ", Site: " + str(curP.site) + ", Info: " + str(curP.info))
     
 
-def getTRNData(curDict, page, cookies):
+def getTRNData(curDict, page, s):
     data_headers = {
         "Host": "www.tennisrecruiting.net",
         "Connection": "close",
@@ -138,31 +124,32 @@ def getTRNData(curDict, page, cookies):
         "Sec-Fetch-Mode": "navigate",
         "Sec-Fetch-User": "?1",
         "Sec-Fetch-Dest": "document",
-        "Referer": "https://www.tennisrecruiting.net/list.asp?id=1215&order=rank&extra=&page=2",
         "Accept-Encoding": "gzip, deflate",
         "Accept-Language": "en-US,en;q=0.9"
     }
-    s = requests.Session()
-    site = requests.get(page, headers = data_headers, cookies = cookies)
+    site = s.get(page, headers = data_headers, cookies=s.cookies)
     soup = BeautifulSoup(site.content, "html.parser")
     playerList = soup.findAll("tr", id=True)
     template = "https://www.tennisrecruiting.net/player.asp?id="
     for player in playerList:
         playerURL = template + player["id"]
-        pSite = requests.get(playerURL)
+        pSite = s.get(playerURL, cookies=s.cookies)
         pSoup = BeautifulSoup(pSite.content, "html.parser")
-        pName = str(pSoup.find("title"))
-        pName = pName[25:-8]
-        pRank = soup.find("tr", id = player["id"]).findAll("td", align = "center")
-        pRank = str(pRank[0])[19:-5]
-        pUTR = str(pSoup.find("div", id = "CenterColumn", class_ = "contents").find("script"))[22:872] + "}"
-        pUTR = json.loads(pUTR)
-        print(pUTR)
-        print("<------------------------------>")
-        if pName not in curDict:
-            curDict[pName] = Player.Player(pName, -1, "USA", "HS student", {"Tennis Recruiting Rank": pRank}, {})
-        else: 
-            curDict[pName].status = "HS student"
-            curDict[pName].site["Tennis Recruiting Rank"] = pRank
-    
-retrieve_tennis_recruiting_net()
+        data = str(pSoup.find_all("script")[21])
+        data = json.loads(data[data.find("{"):data.rfind("}")+1])
+        name = data["header"]["fullname"]
+        if data["weekly_rankings"].get("utr") != None and data["weekly_rankings"]["utr"]["rating"] < 11:
+            continue
+        if name not in curDict:
+            print("\tAdding " + name)
+            curDict[name] = Player.Player(name, -1, "USA", data["header"]["grade"],
+                            {"TRN": data["header"]["stars"] if data["header"]["stars"] < 6 else "Blue Chip"}, {})
+            if data["weekly_rankings"].get("utr") != None:
+                curDict[name].site["UTR"] = data["weekly_rankings"]["utr"]["rating"]
+        else:
+            print("\tUpdating " + name)
+            curDict[name].status = data["header"]["grade"]
+            curDict[name].country = "USA"
+            curDict[name].site["TRN"] = data["header"]["stars"] if data["header"]["stars"] < 6 else "Blue Chip"
+            if "UTF" not in curDict[name].site.keys() and data["weekly_rankings"].get("utr") != None:
+                curDict[name].site["Tennis Recruiting Rank"] = data["weekly_rankings"]["utr"]["rating"]
