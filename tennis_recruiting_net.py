@@ -6,6 +6,7 @@ import hmac
 import binascii
 import urllib
 import json
+import Player
 
 def pretty_print_POST(req):
     """
@@ -115,6 +116,53 @@ def retrieve_tennis_recruiting_net():
         print("Bad User ID")
         return False
     
-    print(soup.findAll("tr", id=True))
+    # print(soup.findAll("tr", id=True))
+    curDict = {}
+    urlTemp = "https://www.tennisrecruiting.net/list.asp?id=1215&order=rank&extra=&page=1"
+    for x in range(1,3):
+        getTRNData(curDict, "https://www.tennisrecruiting.net/list.asp?id=1215&order=rank&extra=&page=" + str(x), s.cookies) 
+    # for player in curDict:
+    #     curP = curDict[player]
+    #     print(curP.name + ", Age: " + str(curP.age) + ", Country: " + curP.country + ", Status: " + str(curP.status) + ", Site: " + str(curP.site) + ", Info: " + str(curP.info))
+    
 
+def getTRNData(curDict, page, cookies):
+    data_headers = {
+        "Host": "www.tennisrecruiting.net",
+        "Connection": "close",
+        "Cache-Control": "max-age=0",
+        "Upgrade-Insecure-Requests": "1",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-User": "?1",
+        "Sec-Fetch-Dest": "document",
+        "Referer": "https://www.tennisrecruiting.net/list.asp?id=1215&order=rank&extra=&page=2",
+        "Accept-Encoding": "gzip, deflate",
+        "Accept-Language": "en-US,en;q=0.9"
+    }
+    s = requests.Session()
+    site = requests.get(page, headers = data_headers, cookies = cookies)
+    soup = BeautifulSoup(site.content, "html.parser")
+    playerList = soup.findAll("tr", id=True)
+    template = "https://www.tennisrecruiting.net/player.asp?id="
+    for player in playerList:
+        playerURL = template + player["id"]
+        pSite = requests.get(playerURL)
+        pSoup = BeautifulSoup(pSite.content, "html.parser")
+        pName = str(pSoup.find("title"))
+        pName = pName[25:-8]
+        pRank = soup.find("tr", id = player["id"]).findAll("td", align = "center")
+        pRank = str(pRank[0])[19:-5]
+        pUTR = str(pSoup.find("div", id = "CenterColumn", class_ = "contents").find("script"))[22:872] + "}"
+        pUTR = json.loads(pUTR)
+        print(pUTR)
+        print("<------------------------------>")
+        if pName not in curDict:
+            curDict[pName] = Player.Player(pName, -1, "USA", "HS student", {"Tennis Recruiting Rank": pRank}, {})
+        else: 
+            curDict[pName].status = "HS student"
+            curDict[pName].site["Tennis Recruiting Rank"] = pRank
+    
 retrieve_tennis_recruiting_net()
