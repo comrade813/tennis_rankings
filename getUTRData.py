@@ -1,21 +1,77 @@
-import Player
+from Player import Player
 import requests
 import json
 import pprint as pp
 from bs4 import BeautifulSoup
+import binascii
+import urllib
+import json
+from common_functions import *
 
+def login():
+    s = requests.Session()
+    login_url = "https://app.myutr.com/api/v1/auth/login"
+    login_headers = {
+        "Content-Length": "58",
+        "Content-Type": "application/json;charset=UTF-8",
+        "Host": "app.myutr.com",
+    }
 
-def getUTRData(curDict): 
-    site = requests.get("https://agw-prod.myutr.com/v2/player/top?gender=M&tags=U18")
-    data = site.json()
+    payload = {
+        "email": "KThorne@gtaa.gatech.edu",
+        "password": "Jackets18"
+    }
 
-    for player in data: 
-        pName = player["displayName"].encode("utf-8")
-        if pName not in curDict:
-            curDict[pName] = Player.Player(pName, -1, player["nationality"].encode("utf-8"), "null", {"UTR" : player["utr"]}, {"Pro":"null"})
-    return curDict
+    response = s.post(login_url, data=json.dumps(payload), headers=login_headers)
+    return s
 
-# playerDict = {}
-# getUTRData(playerDict)
-# for player in playerDict.values():
-#     print(player.name + ", Age: " + str(player.age) + ", Country: " + player.country + ", status: " + player.status + ", site: " + str(player.site) + ", info: " + str(player.info) + "\n")
+def getUTRData(masterDict):
+    s = login()
+
+    data_header = {
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Encoding": "gzip, deflate",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Origin": "https://app.myutr.com",
+        "Referer": "https://app.myutr.com",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-User": "?1",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 11_1_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36"
+    }
+
+    tags = ["U14", "U16", "U18", "HighSchool", "College"]
+    url = "https://agw-prod.myutr.com/v2/player/top?gender=M&tags="
+    for t in tags:
+        data_url = url+t
+        data = s.get(data_url, headers=data_header, cookies=s.cookies)
+        if data.status_code != 200:
+            print("Something went wrong")
+            return False
+        players = json.loads(data.content)
+        print(str(len(players)) + " in the " + t + " category")
+        for player in players:
+            if float(player["utr"]) > 11:
+                name = player["displayName"]
+                if name in masterDict.keys():
+                    if "UTR" not in masterDict[name].site:
+                        print("\tUpdating " + name + ", UTR: " + str(player["utr"]))
+                        masterDict[name].site["UTR"] = player["utr"]
+                    else:
+                        print(name + "is up to date")
+                else:
+                    print("\tAdding " + name + ", UTR: " + str(player["utr"]))
+                    profile = s.get("https://agw-prod.myutr.com/v1/player/"+str(player["id"])+"/profile")
+                    age = json.loads(profile.content)["age"]
+                    if age == None:
+                        print("\t\tNo age on file, skipping")
+                        continue
+                    if age > 19:
+                        continue
+                    masterDict[name] = Player(name, age, player["nationality"],"not professional",
+                                              {"UTR": player["utr"]}, {})
+            else:
+                break
+    return True
